@@ -1,6 +1,8 @@
 import {useState, useEffect} from 'react';
 import axios from 'axios';
 
+let loginUrl = "http://localhost/jwt_server/login.php";
+let resUrl = "http://localhost/jwt_server/resources.php";
 
 function App() {
 
@@ -27,7 +29,7 @@ function App() {
 
     //Lähetetään tiedot palvelimelle. Jos vastaus OK,
     //talletetaan vastauksen token, nollataan kentät ja asetetaan käyttäjä loggautuneeksi
-    axios.post('http://localhost/jwt_server/login.php', null, params)
+    axios.post(loginUrl, null, params)
       .then(resp => {
         if(resp.status === 200){
           sessionStorage.setItem("token", resp.data.token);
@@ -59,6 +61,8 @@ function App() {
   }
 }
 
+
+
 //Komponentti käyttäjän resussin näyttämiseksi
 function Resource(props){
 
@@ -75,7 +79,7 @@ function Resource(props){
 
     //Haetaan resurssia bearer-tokenin kanssa
     //Asetetaan saadusta resurssista sisältö sivulle.
-    axios.get('http://localhost/jwt_server/resources.php', params)
+    axios.get(resUrl, params)
       .then(resp=>setContent(resp.data.message))
       .catch(e=> console.log(e))
 
