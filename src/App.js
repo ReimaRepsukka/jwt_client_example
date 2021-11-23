@@ -4,21 +4,9 @@ import axios from 'axios';
 let loginUrl = "http://localhost/jwt_server/login.php";
 let resUrl = "http://localhost/jwt_server/resources.php";
 
-function App() {
 
-  //Formin tietojen hallinta
-  const [username, setUsername] = useState("");
-  const [pw, setPw] = useState("");
-  //Pidetään yllä tieto, onko käyttäjä loggautunut sisään
-  const [auth, setAuth ] = useState(false);
-
-  //Asetetaan loggautuneeksi, jos sessionStoragessa on talletettu token
-  if(!auth && sessionStorage.getItem("token")){
-    setAuth(true);
-  }
-
-  //Login napin hallinta.
-  const login = e =>{
+//Funktio login-toiminnon hallintaan
+function loginUser(e, username, pw, setAuth, setUsername, setPw ){
     e.preventDefault();
 
     //Basic auth header login tiedoista (windos.btoa, koska pelkkä btoa yrittää käyttää Reactin omaan deprekoitunutta)
@@ -33,19 +21,36 @@ function App() {
       .then(resp => {
         if(resp.status === 200){
           sessionStorage.setItem("token", resp.data.token);
+          setAuth(true);
           setUsername("");
           setPw("");
-          setAuth(true);
         }
       })
       .catch(e => console.log(e))
+}
+
+
+/**
+ * Pääsivu 
+ */
+function App() {
+
+  //Formin tietojen hallinta
+  const [username, setUsername] = useState("");
+  const [pw, setPw] = useState("");
+  //Pidetään yllä tieto, onko käyttäjä loggautunut sisään
+  const [auth, setAuth ] = useState(false);
+
+  //Asetetaan loggautuneeksi, jos sessionStoragessa on talletettu token
+  if(!auth && sessionStorage.getItem("token")){
+    setAuth(true);
   }
 
-  //Jos käyttäjä ei ole loggautunut, näytetään login-lomake. Muuten näytetään käyttäjän oma resurssi.
+  //Jos käyttäjä ei ole kirjautunut, näytetään login-lomake. Muuten näytetään käyttäjän oma resurssi.
   if(!auth){
     return (
       <div>
-        <form onSubmit={login}>
+        <form onSubmit={ e => loginUser(e,username,pw,setAuth,setUsername,setPw)}>
           <label>Username:</label>
           <input type='text' value={username} onChange={e=>setUsername(e.target.value)}></input>
           <label>Password:</label>
@@ -56,41 +61,44 @@ function App() {
     );
   }else{
     //Näytetään loggautuneen käyttäjän resurssi.
-    //Välisetään myös setAuth, jotta resurssissa voidaan loggautua ulos.
-    return <Resource login={setAuth} />;  
+    //Välitetään myös setAuth, jotta sivulta voidaan loggautua ulos.
+    return <Resource auth={setAuth} />;  
   }
 }
 
 
+//Funktio joka hakee palvelimelta tokenin avulla käyttäjän resurssin.
+function requestWitBearer(setContent){
+  //Asetetaan bearer token headeriin
+  var params = {
+    headers: { 'authorization':'Bearer ' + sessionStorage.getItem("token") },
+    withCredentials: true,
+  }
 
-//Komponentti käyttäjän resussin näyttämiseksi
+  //Haetaan resurssia bearer-tokenin kanssa
+  //Asetetaan saadusta resurssista sisältö sivulle.
+  axios.get(resUrl, params)
+    .then(resp=>setContent(resp.data.message))
+    .catch(e=> console.log(e))
+}
+
+
+/**
+ * Käyttäjän resurssisivu
+ */
 function Resource(props){
 
   //Käyttäjän henkkoht content
   const [content, setContent] = useState("");
 
   //useEffect, jota Kutsutaan yhden kerran komponentille.
-  useEffect(() => {
-    //Asetetaan bearer token headeriin
-    var params = {
-      headers: { 'authorization':'Bearer ' + sessionStorage.getItem("token") },
-      withCredentials: true,
-    }
-
-    //Haetaan resurssia bearer-tokenin kanssa
-    //Asetetaan saadusta resurssista sisältö sivulle.
-    axios.get(resUrl, params)
-      .then(resp=>setContent(resp.data.message))
-      .catch(e=> console.log(e))
-
-  }, []);
-  
+  useEffect(() => requestWitBearer(setContent), []);
 
   //Logout-painike poistaa tokenin ja asettaa auth useStaten falseksi
   //Tämä aiheuttaa App-sivun lataamisen uudelleen, jolloin login-lomake tulee näkyviin.
   const logout = () => {
     sessionStorage.removeItem("token");
-    props.login(false);
+    props.auth(false);
   }
 
   return(
